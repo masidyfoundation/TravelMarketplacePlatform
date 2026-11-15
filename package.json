@@ -4,15 +4,15 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "NODE_OPTIONS=--no-deprecation next dev --port ${PORT:-3000} --hostname 0.0.0.0",
-    "build": "NODE_OPTIONS=--no-deprecation payload build",
-    "start": "NODE_OPTIONS=--no-deprecation next start",
+    "dev": "node scripts/run-next-dev.mjs",
+    "build": "cross-env NODE_OPTIONS=--no-deprecation payload build",
+    "start": "cross-env NODE_OPTIONS=--no-deprecation next start",
     "format": "oxfmt",
     "test:smoke": "node scripts/production-smoke.mjs",
     "test:production": "pnpm test:smoke && node scripts/production-quality.mjs",
-    "generate:importmap": "NODE_OPTIONS=--no-deprecation payload generate:importmap",
-    "generate:types": "NODE_OPTIONS=--no-deprecation payload generate:types",
-    "payload": "NODE_OPTIONS=--no-deprecation payload"
+    "generate:importmap": "cross-env NODE_OPTIONS=--no-deprecation payload generate:importmap",
+    "generate:types": "cross-env NODE_OPTIONS=--no-deprecation payload generate:types",
+    "payload": "cross-env NODE_OPTIONS=--no-deprecation payload"
   },
   "dependencies": {
     "@payloadcms/figma": "1.0.0-beta.1",
@@ -39,6 +39,7 @@
     "@types/node": "24.12.3",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
+    "cross-env": "^10.1.0",
     "oxfmt": "^0.73.0",
     "postcss": "^8.5.0",
     "tailwindcss": "^4.0.0",
