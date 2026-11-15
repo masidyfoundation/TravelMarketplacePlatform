@@ -1,0 +1,75 @@
+@import 'tailwindcss';
+
+@theme inline {
+  --font-sans: var(--font-sans);
+  --font-serif: var(--font-serif);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  }
+
+  ::selection {
+    background: #5bd3dd;
+    color: #08283f;
+  }
+
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer utilities {
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    background: #e8f8fb;
+    padding: 0.5rem 0.9rem;
+    color: #087f9e;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  .section-title {
+    max-width: 56rem;
+    color: #0b2944;
+    font-size: clamp(2.5rem, 5vw, 4.7rem);
+    font-weight: 650;
+    letter-spacing: -0.06em;
+    line-height: 0.98;
+  }
+}
+
+.figma-custom-code-fragment {
+  display: contents;
+}
+
+.figma-bypass-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 2147483647;
+  transform: translateY(-150%);
+  border-radius: 6px;
+  background: #111827;
+  color: #fff;
+  padding: 8px 12px;
+  font:
+    600 14px/1.2 system-ui,
+    sans-serif;
+  text-decoration: none;
+}
+
+.figma-bypass-link:focus {
+  transform: translateY(0);
+}
