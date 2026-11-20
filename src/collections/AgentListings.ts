@@ -39,6 +39,40 @@ const validateActiveTrip: CollectionBeforeValidateHook = async ({ data, original
   if (trip.status !== 'active') {
     throw new Error('Only active marketplace trips can be listed.')
   }
+  const nextStatus = data?.status ?? originalDoc?.status
+  const agentID =
+    typeof (data?.agent ?? originalDoc?.agent) === 'string'
+      ? (data?.agent ?? originalDoc?.agent)
+      : (data?.agent ?? originalDoc?.agent)?.id
+  if (nextStatus === 'active' && agentID) {
+    const [profiles, accounts] = await Promise.all([
+      req.payload.find({
+        collection: 'agent-profiles',
+        where: {
+          and: [{ owner: { equals: agentID } }, { status: { equals: 'published' } }],
+        },
+        limit: 1,
+        overrideAccess: true,
+        req,
+      }),
+      req.payload.find({
+        collection: 'payment-accounts',
+        where: {
+          and: [
+            { user: { equals: agentID } },
+            { payoutsEnabled: { equals: true } },
+            { status: { equals: 'enabled' } },
+          ],
+        },
+        limit: 1,
+        overrideAccess: true,
+        req,
+      }),
+    ])
+    if (profiles.totalDocs === 0 || accounts.totalDocs === 0) {
+      throw new Error('Active listings require a published profile and enabled payouts.')
+    }
+  }
   return data
 }
 

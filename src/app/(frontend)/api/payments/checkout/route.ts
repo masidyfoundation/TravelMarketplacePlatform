@@ -2,11 +2,15 @@ import { getCurrentUser } from '@/lib/current-user'
 import { getPayloadClient } from '@/lib/payload'
 import { getStripeClient } from '@/lib/stripe'
 import { enforceRateLimit } from '@/lib/rate-limit'
+import { hasRequiredConsents } from '@/lib/required-consents'
 
 export async function POST(request: Request) {
   const user = await getCurrentUser()
   if (!user) {
     return Response.json({ error: 'Sign in to continue.' }, { status: 401 })
+  }
+  if (!(await hasRequiredConsents(user))) {
+    return Response.json({ error: 'Accept the Terms and Privacy Policy first.' }, { status: 403 })
   }
   try {
     await enforceRateLimit(String(user.id), 'checkout', 10, 15 * 60 * 1000)
@@ -63,19 +67,33 @@ export async function POST(request: Request) {
       const profile = profiles.docs[0]
       if (profile) {
         const ownerID = typeof profile.owner === 'string' ? profile.owner : String(profile.owner.id)
-        const listings = await payload.find({
-          collection: 'agent-listings',
-          where: {
-            and: [
-              { agent: { equals: ownerID } },
-              { trip: { equals: trip.id } },
-              { status: { equals: 'active' } },
-            ],
-          },
-          limit: 1,
-          overrideAccess: false,
-        })
-        if (listings.totalDocs > 0) attributionAgentID = ownerID
+        const [listings, accounts] = await Promise.all([
+          payload.find({
+            collection: 'agent-listings',
+            where: {
+              and: [
+                { agent: { equals: ownerID } },
+                { trip: { equals: trip.id } },
+                { status: { equals: 'active' } },
+              ],
+            },
+            limit: 1,
+            overrideAccess: false,
+          }),
+          payload.find({
+            collection: 'payment-accounts',
+            where: {
+              and: [
+                { user: { equals: ownerID } },
+                { payoutsEnabled: { equals: true } },
+                { status: { equals: 'enabled' } },
+              ],
+            },
+            limit: 1,
+            overrideAccess: true,
+          }),
+        ])
+        if (listings.totalDocs > 0 && accounts.totalDocs > 0) attributionAgentID = ownerID
       }
     }
 
@@ -120,7 +138,7 @@ export async function POST(request: Request) {
       user,
       overrideAccess: false,
       draft: false,
-      context: { attributionAgentID },
+      context: { attributionAgentID, checkout: true },
       data: {
         trip: trip.id,
         travelers,
@@ -135,6 +153,7 @@ export async function POST(request: Request) {
         user,
         overrideAccess: false,
         draft: false,
+        context: { checkout: true },
         data: {
           departure: departureId,
           order: order.id,
@@ -145,40 +164,42 @@ export async function POST(request: Request) {
       holdID = String(hold.id)
     }
 
-    const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      customer_email: user.email,
-      success_url: `${siteURL}/dashboard?payment=success`,
-      cancel_url: `${siteURL}/?payment=cancelled#journeys`,
-      line_items: [
-        {
-          quantity: 1,
-          price_data: {
-            currency: trip.currency.toLowerCase(),
-            unit_amount: Math.round(order.total * 100),
-            product_data: {
-              name: trip.title,
-              description: `${trip.durationDays}-day journey to ${trip.destination} for ${travelers} traveler${travelers > 1 ? 's' : ''}`,
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: 'payment',
+        customer_email: user.email,
+        success_url: `${siteURL}/dashboard?payment=success`,
+        cancel_url: `${siteURL}/?payment=cancelled#journeys`,
+        line_items: [
+          {
+            quantity: 1,
+            price_data: {
+              currency: trip.currency.toLowerCase(),
+              unit_amount: Math.round(order.total * 100),
+              product_data: {
+                name: trip.title,
+                description: `${trip.durationDays}-day journey to ${trip.destination} for ${travelers} traveler${travelers > 1 ? 's' : ''}`,
+              },
             },
           },
+        ],
+        metadata: {
+          orderId: order.id,
+          orderReference: order.reference,
+          userId: user.id,
+          tripId: trip.id,
+          ...(departureId ? { departureId } : {}),
+          ...(holdID ? { holdId: holdID } : {}),
+          ...(attributionAgentID ? { agentId: attributionAgentID } : {}),
         },
-      ],
-      metadata: {
-        orderId: order.id,
-        orderReference: order.reference,
-        userId: user.id,
-        tripId: trip.id,
-        ...(departureId ? { departureId } : {}),
-        ...(holdID ? { holdId: holdID } : {}),
-        ...(attributionAgentID ? { agentId: attributionAgentID } : {}),
       },
-    })
+      { idempotencyKey: `checkout:${order.id}` },
+    )
 
     await payload.update({
       collection: 'orders',
       id: order.id,
-      user,
-      overrideAccess: false,
+      overrideAccess: true,
       data: { stripeCheckoutSessionId: session.id },
     })
 

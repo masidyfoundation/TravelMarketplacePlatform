@@ -394,6 +394,7 @@ export interface User {
 export interface Media {
   id: string;
   alt: string;
+  owner?: (string | null) | User;
   _h_folders?: (string | null) | Folder;
   _h_tags?: (string | Tag)[] | null;
   prefix?: string | null;
@@ -535,6 +536,10 @@ export interface Agency {
   rating: number;
   reviewCount: number;
   yearsActive: number;
+  /**
+   * Show this sample provider only in the product demo.
+   */
+  isDemo?: boolean | null;
   status: 'pending' | 'verified' | 'suspended';
   createdBy?:
     | ({
@@ -569,7 +574,7 @@ export interface Trip {
   country: string;
   category: 'beach' | 'culture' | 'adventure' | 'wellness' | 'luxury';
   agency: string | Agency;
-  heroImage: string | Media;
+  heroImage?: (string | null) | Media;
   durationDays: number;
   price: number;
   currency: 'USD' | 'EUR' | 'GBP' | 'AED';
@@ -615,7 +620,11 @@ export interface Trip {
   difficulty?: ('easy' | 'moderate' | 'active' | 'challenging') | null;
   cancellationPolicy?: string | null;
   featured?: boolean | null;
-  status: 'draft' | 'active' | 'paused';
+  /**
+   * Show this sample trip only in the product demo.
+   */
+  isDemo?: boolean | null;
+  status: 'draft' | 'review' | 'active' | 'paused';
   createdBy?:
     | ({
         relationTo: 'admins';
@@ -824,6 +833,7 @@ export interface Order {
   currency: 'USD' | 'EUR' | 'GBP' | 'AED';
   agentCommissionAmount?: number | null;
   platformFeeAmount?: number | null;
+  invoicePrefix?: string | null;
   status: 'pending' | 'paid' | 'confirmed' | 'completed' | 'cancelled' | 'refunded';
   stripeCheckoutSessionId?: string | null;
   stripePaymentIntentId?: string | null;
@@ -2339,6 +2349,7 @@ export interface UsersSelect<T extends boolean = true> {
  */
 export interface MediaSelect<T extends boolean = true> {
   alt?: T;
+  owner?: T;
   _h_folders?: T;
   _h_tags?: T;
   prefix?: T;
@@ -2431,6 +2442,7 @@ export interface AgenciesSelect<T extends boolean = true> {
   rating?: T;
   reviewCount?: T;
   yearsActive?: T;
+  isDemo?: T;
   status?: T;
   createdBy?: T;
   updatedBy?: T;
@@ -2491,6 +2503,7 @@ export interface TripsSelect<T extends boolean = true> {
   difficulty?: T;
   cancellationPolicy?: T;
   featured?: T;
+  isDemo?: T;
   status?: T;
   createdBy?: T;
   updatedBy?: T;
@@ -2598,6 +2611,7 @@ export interface OrdersSelect<T extends boolean = true> {
   currency?: T;
   agentCommissionAmount?: T;
   platformFeeAmount?: T;
+  invoicePrefix?: T;
   status?: T;
   stripeCheckoutSessionId?: T;
   stripePaymentIntentId?: T;

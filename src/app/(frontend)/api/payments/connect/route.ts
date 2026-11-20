@@ -54,6 +54,7 @@ export async function POST(request: Request) {
         user,
         overrideAccess: false,
         draft: false,
+        context: { stripeConnect: true },
         data: {
           stripeAccountId: account.id,
           ...(agencyId ? { agency: agencyId } : {}),

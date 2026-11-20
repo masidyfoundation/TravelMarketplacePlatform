@@ -77,6 +77,7 @@ export async function createBookingRequest(
         secret: turnstileSecret,
         response: captchaToken,
       }),
+      signal: AbortSignal.timeout(10_000),
     })
     const challenge = (await verification.json()) as { success?: boolean }
     if (!verification.ok || !challenge.success) {
@@ -90,6 +91,7 @@ export async function createBookingRequest(
       collection: 'booking-requests',
       overrideAccess: false,
       draft: false,
+      context: { verifiedPublicSubmission: true },
       data: {
         travelerName,
         email,

@@ -62,7 +62,7 @@ export async function POST(request: Request) {
             overrideAccess: true,
             draft: false,
             data: {
-              number: `INV-${randomUUID().slice(0, 10).toUpperCase()}`,
+              number: `${order.invoicePrefix || 'INV'}-${randomUUID().slice(0, 10).toUpperCase()}`,
               order: order.id,
               customer: typeof order.traveler === 'string' ? order.traveler : order.traveler.id,
               subtotal: order.subtotal ?? order.total,
@@ -105,18 +105,6 @@ export async function POST(request: Request) {
               : []),
             { type: 'agency-net', amount: agencyNet, agency: agencyID },
           ]
-          for (const entry of entries) {
-            await payload.create({
-              collection: 'ledger-entries',
-              overrideAccess: true,
-              draft: false,
-              data: {
-                order: order.id,
-                currency: order.currency,
-                ...entry,
-              } as never,
-            })
-          }
           const transferGroup = `ORDER_${order.id}`
           const beneficiaries = [
             { amount: agencyNet, agency: agencyID },
@@ -146,6 +134,20 @@ export async function POST(request: Request) {
                 idempotencyKey: `${order.id}:${account.stripeAccountId}`,
               },
             )
+          }
+          // Transfers use idempotency keys and happen first so a partial failure can
+          // safely retry instead of leaving a completed ledger with missing payouts.
+          for (const entry of entries) {
+            await payload.create({
+              collection: 'ledger-entries',
+              overrideAccess: true,
+              draft: false,
+              data: {
+                order: order.id,
+                currency: order.currency,
+                ...entry,
+              } as never,
+            })
           }
         }
       }

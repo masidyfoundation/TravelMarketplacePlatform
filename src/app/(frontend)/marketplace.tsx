@@ -64,6 +64,7 @@ export type MarketplaceAgency = {
 type MarketplaceProps = {
   trips: MarketplaceTrip[]
   agencies: MarketplaceAgency[]
+  demoTrips: MarketplaceTrip[]
 }
 
 const categories = ['All', 'Beach', 'Culture', 'Adventure', 'Luxury']
@@ -75,7 +76,7 @@ const currency = (value: number, code: string) =>
     maximumFractionDigits: 0,
   }).format(value)
 
-export default function Marketplace({ trips, agencies }: MarketplaceProps) {
+export default function Marketplace({ trips, agencies, demoTrips }: MarketplaceProps) {
   const [category, setCategory] = useState('All')
   const [query, setQuery] = useState('')
   const [savedTrips, setSavedTrips] = useState<string[]>([])
@@ -86,7 +87,10 @@ export default function Marketplace({ trips, agencies }: MarketplaceProps) {
   const [checkoutBusy, setCheckoutBusy] = useState(false)
   const [state, formAction, pending] = useActionState(createBookingRequest, initialBookingState)
 
-  const featured = trips.find((trip) => trip.featured) ?? trips[0]
+  const featuredLive = trips.find((trip) => trip.featured) ?? trips[0]
+  const featuredDemo = demoTrips.find((trip) => trip.featured) ?? demoTrips[0]
+  const featured = featuredLive ?? featuredDemo
+  const featuredIsDemo = !featuredLive && Boolean(featuredDemo)
   const filteredTrips = useMemo(() => {
     const needle = query.trim().toLowerCase()
     return trips.filter((trip) => {
@@ -328,7 +332,7 @@ export default function Marketplace({ trips, agencies }: MarketplaceProps) {
             <div className="mt-8 flex flex-wrap items-center gap-x-7 gap-y-3 text-sm font-semibold text-slate-500">
               <span className="flex items-center gap-2">
                 <ShieldCheck size={18} className="text-[#11a6a0]" />
-                Verified agencies
+                {trips.length > 0 ? 'Verified agencies' : 'Demo content clearly marked'}
               </span>
               <span className="flex items-center gap-2">
                 <Headphones size={18} className="text-[#11a6a0]" />
@@ -353,6 +357,11 @@ export default function Marketplace({ trips, agencies }: MarketplaceProps) {
                   priority
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#08223b]/80 via-transparent to-transparent" />
+                {featuredIsDemo && (
+                  <span className="absolute left-6 top-6 rounded-full border border-white/30 bg-[#08233a]/75 px-4 py-2 text-[11px] font-extrabold uppercase tracking-[.14em] text-white backdrop-blur">
+                    Demo experience · not bookable
+                  </span>
+                )}
                 <div className="absolute inset-x-0 bottom-0 p-7 text-white sm:p-10">
                   <div className="mb-3 flex items-center gap-2 text-sm font-bold text-white/80">
                     <MapPin size={16} />
@@ -364,20 +373,30 @@ export default function Marketplace({ trips, agencies }: MarketplaceProps) {
                   <div className="mt-6 flex items-end justify-between gap-4">
                     <div>
                       <span className="block text-xs font-bold uppercase tracking-[.14em] text-white/60">
-                        From
+                        {featuredIsDemo ? 'Illustrative price' : 'From'}
                       </span>
                       <span className="text-2xl font-extrabold">
                         {currency(featured.price, featured.currency)}
                       </span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedTrip(featured)}
-                      className="grid size-14 place-items-center rounded-full bg-white text-[#0b2944] transition hover:scale-105"
-                      aria-label={`Request ${featured.title}`}
-                    >
-                      <ArrowRight size={22} />
-                    </button>
+                    {featuredIsDemo ? (
+                      <Link
+                        href="/demo"
+                        className="grid size-14 place-items-center rounded-full bg-white text-[#0b2944] transition hover:scale-105"
+                        aria-label="Explore the Masidy product demo"
+                      >
+                        <ArrowRight size={22} />
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTrip(featured)}
+                        className="grid size-14 place-items-center rounded-full bg-white text-[#0b2944] transition hover:scale-105"
+                        aria-label={`Request ${featured.title}`}
+                      >
+                        <ArrowRight size={22} />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -387,8 +406,12 @@ export default function Marketplace({ trips, agencies }: MarketplaceProps) {
                     <BadgeCheck size={22} />
                   </div>
                   <div>
-                    <p className="text-sm font-extrabold">Expertly vetted</p>
-                    <p className="text-xs text-slate-500">By local specialists</p>
+                    <p className="text-sm font-extrabold">
+                      {featuredIsDemo ? 'Sample journey' : 'Expertly vetted'}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {featuredIsDemo ? 'For product demonstration' : 'By local specialists'}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -406,9 +429,38 @@ export default function Marketplace({ trips, agencies }: MarketplaceProps) {
                   ))}
                 </div>
                 <div>
-                  <p className="text-sm font-extrabold">24/7 care</p>
-                  <p className="text-xs text-white/60">Before, during & after</p>
+                  <p className="text-sm font-extrabold">
+                    {featuredIsDemo ? 'Preview only' : '24/7 care'}
+                  </p>
+                  <p className="text-xs text-white/60">
+                    {featuredIsDemo ? 'No booking or payment' : 'Before, during & after'}
+                  </p>
                 </div>
+              </div>
+            </div>
+          )}
+          {!featured && (
+            <div className="relative mx-auto w-full max-w-[650px] lg:mx-0">
+              <div className="rounded-[44px] border border-white bg-white p-8 shadow-[0_35px_110px_rgba(14,44,68,.14)] sm:p-12">
+                <span className="grid size-16 place-items-center rounded-2xl bg-[#e8f9fb] text-[#0b93ad]">
+                  <Compass size={30} />
+                </span>
+                <p className="mt-10 text-xs font-extrabold uppercase tracking-[.16em] text-[#0b8da8]">
+                  Provider onboarding in progress
+                </p>
+                <h2 className="mt-4 text-3xl font-semibold tracking-[-.045em] text-[#0b2944] sm:text-5xl">
+                  Real partner inventory is coming online.
+                </h2>
+                <p className="mt-5 max-w-lg text-base leading-7 text-slate-500">
+                  New journeys appear here automatically after Masidy verifies the provider,
+                  licensing, support contacts and sales terms.
+                </p>
+                <Link
+                  href="/demo"
+                  className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#0c2f4d] px-6 py-3.5 text-sm font-extrabold text-white"
+                >
+                  Explore how Masidy works <ArrowRight size={17} />
+                </Link>
               </div>
             </div>
           )}
@@ -419,28 +471,40 @@ export default function Marketplace({ trips, agencies }: MarketplaceProps) {
         <div className="mx-auto max-w-[1320px]">
           <div className="flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
             <div>
-              <span className="eyebrow">Curated for you</span>
+              <span className="eyebrow">
+                {trips.length > 0 ? 'Curated for you' : 'Demo preview'}
+              </span>
               <h2 className="section-title mt-4">
-                Remarkable journeys,{' '}
-                <span className="font-serif font-normal italic text-[#168bad]">ready to go.</span>
+                {trips.length > 0 ? 'Remarkable journeys, ' : 'See the marketplace, '}
+                <span className="font-serif font-normal italic text-[#168bad]">
+                  {trips.length > 0 ? 'ready to go.' : 'before providers arrive.'}
+                </span>
               </h2>
+              {trips.length === 0 && (
+                <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-500">
+                  The journeys below are illustrative demo records. They show how real provider
+                  inventory will look, but they cannot be booked, saved, or purchased.
+                </p>
+              )}
             </div>
-            <div className="flex flex-wrap gap-2">
-              {categories.map((item) => (
-                <button
-                  type="button"
-                  key={item}
-                  onClick={() => setCategory(item)}
-                  className={`rounded-full px-5 py-2.5 text-sm font-extrabold transition ${
-                    category === item
-                      ? 'bg-[#0c2f4d] text-white shadow-lg'
-                      : 'bg-[#f4f6f7] text-slate-500 hover:bg-[#e9eef1]'
-                  }`}
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
+            {trips.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {categories.map((item) => (
+                  <button
+                    type="button"
+                    key={item}
+                    onClick={() => setCategory(item)}
+                    className={`rounded-full px-5 py-2.5 text-sm font-extrabold transition ${
+                      category === item
+                        ? 'bg-[#0c2f4d] text-white shadow-lg'
+                        : 'bg-[#f4f6f7] text-slate-500 hover:bg-[#e9eef1]'
+                    }`}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {filteredTrips.length > 0 ? (
@@ -519,21 +583,104 @@ export default function Marketplace({ trips, agencies }: MarketplaceProps) {
                 </article>
               ))}
             </div>
+          ) : trips.length === 0 && demoTrips.length > 0 ? (
+            <>
+              <div className="mt-12 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+                {demoTrips.slice(0, 4).map((trip) => (
+                  <article
+                    key={trip.id}
+                    className="group overflow-hidden rounded-[30px] border border-[#18a1b5]/20 bg-white shadow-[0_15px_50px_rgba(20,49,70,.08)]"
+                  >
+                    <div className="relative h-[300px] overflow-hidden">
+                      <Image
+                        src={trip.image}
+                        alt={trip.imageAlt}
+                        fill
+                        sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 25vw"
+                        className="object-cover transition duration-700 group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#08233a]/45 to-transparent" />
+                      <span className="absolute left-4 top-4 rounded-full bg-[#0b2e4a] px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-[.13em] text-white">
+                        Demo · not bookable
+                      </span>
+                      <span className="absolute bottom-4 left-4 rounded-full bg-white/92 px-3 py-1.5 text-[11px] font-extrabold text-[#0b2944] backdrop-blur">
+                        {trip.days} days
+                      </span>
+                    </div>
+                    <div className="p-5">
+                      <p className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+                        <MapPin size={14} className="text-[#13a2b2]" />
+                        {trip.destination}, {trip.country}
+                      </p>
+                      <h3 className="mt-3 text-xl font-extrabold tracking-[-.035em] text-[#0c2d48]">
+                        {trip.title}
+                      </h3>
+                      <p className="mt-2 min-h-12 text-sm leading-6 text-slate-500">
+                        {trip.tagline}
+                      </p>
+                      <div className="mt-5 flex items-end justify-between border-t border-slate-100 pt-4">
+                        <div>
+                          <span className="block text-[10px] font-extrabold uppercase tracking-[.12em] text-slate-400">
+                            Example price
+                          </span>
+                          <span className="text-lg font-black text-[#0b2944]">
+                            {currency(trip.price, trip.currency)}
+                          </span>
+                        </div>
+                        <Link
+                          href="/demo"
+                          className="rounded-full bg-[#edf8fa] px-4 py-2 text-xs font-extrabold text-[#0985a7]"
+                        >
+                          Explore demo
+                        </Link>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+              <div className="mt-8 flex flex-col items-start justify-between gap-4 rounded-[24px] bg-[#edf9fa] p-5 sm:flex-row sm:items-center">
+                <p className="text-sm font-bold leading-6 text-[#0b5265]">
+                  Demo trips are sample content only. Real trips will appear automatically after
+                  provider verification and cannot be confused with these previews.
+                </p>
+                <Link
+                  href="/demo"
+                  className="shrink-0 rounded-full bg-[#0b2e4a] px-5 py-2.5 text-xs font-extrabold text-white"
+                >
+                  Open interactive demo
+                </Link>
+              </div>
+            </>
           ) : (
             <div className="mt-12 rounded-[30px] border border-dashed border-slate-200 bg-slate-50 px-6 py-16 text-center">
               <Compass className="mx-auto text-slate-300" size={36} />
-              <h3 className="mt-4 text-xl font-extrabold">No exact match yet</h3>
-              <p className="mt-2 text-slate-500">Try another destination or browse all journeys.</p>
-              <button
-                type="button"
-                onClick={() => {
-                  setQuery('')
-                  setCategory('All')
-                }}
-                className="mt-5 rounded-full bg-[#0c2f4d] px-5 py-2.5 text-sm font-bold text-white"
-              >
-                Clear filters
-              </button>
+              <h3 className="mt-4 text-xl font-extrabold">
+                {trips.length === 0 ? 'Live journeys are being onboarded' : 'No exact match yet'}
+              </h3>
+              <p className="mt-2 text-slate-500">
+                {trips.length === 0
+                  ? 'Only verified providers with complete sales information can publish here.'
+                  : 'Try another destination or browse all journeys.'}
+              </p>
+              {trips.length === 0 ? (
+                <Link
+                  href="/demo"
+                  className="mt-5 inline-flex rounded-full bg-[#0c2f4d] px-5 py-2.5 text-sm font-bold text-white"
+                >
+                  View the product demo
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuery('')
+                    setCategory('All')
+                  }}
+                  className="mt-5 rounded-full bg-[#0c2f4d] px-5 py-2.5 text-sm font-bold text-white"
+                >
+                  Clear filters
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -621,56 +768,67 @@ export default function Marketplace({ trips, agencies }: MarketplaceProps) {
               traveler outcomes.
             </p>
           </div>
-          <div className="mt-12 grid gap-5 lg:grid-cols-3">
-            {agencies.map((agency) => (
-              <article
-                key={agency.id}
-                className="group overflow-hidden rounded-[30px] border border-white/10 bg-white/[.06] p-3 transition hover:-translate-y-1 hover:bg-white/[.09]"
-              >
-                <div className="relative h-48 overflow-hidden rounded-[23px]">
-                  <Image
-                    src={agency.image}
-                    alt={agency.imageAlt}
-                    fill
-                    sizes="(max-width: 1024px) 100vw, 33vw"
-                    className="object-cover transition duration-700 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#08233a]/60 to-transparent" />
-                  <span className="absolute bottom-4 left-4 flex items-center gap-1.5 rounded-full bg-white/92 px-3 py-1.5 text-[11px] font-extrabold text-[#0b2944]">
-                    <BadgeCheck size={14} className="text-[#0ca7a0]" />
-                    Masidy verified
-                  </span>
-                </div>
-                <div className="p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h3 className="text-xl font-extrabold">{agency.name}</h3>
-                      <p className="mt-1 text-sm text-white/50">{agency.location}</p>
-                    </div>
-                    <span className="flex items-center gap-1 text-sm font-bold">
-                      <Star size={14} className="fill-[#f4ba45] text-[#f4ba45]" />
-                      {agency.rating}
+          {agencies.length > 0 ? (
+            <div className="mt-12 grid gap-5 lg:grid-cols-3">
+              {agencies.map((agency) => (
+                <article
+                  key={agency.id}
+                  className="group overflow-hidden rounded-[30px] border border-white/10 bg-white/[.06] p-3 transition hover:-translate-y-1 hover:bg-white/[.09]"
+                >
+                  <div className="relative h-48 overflow-hidden rounded-[23px]">
+                    <Image
+                      src={agency.image}
+                      alt={agency.imageAlt}
+                      fill
+                      sizes="(max-width: 1024px) 100vw, 33vw"
+                      className="object-cover transition duration-700 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#08233a]/60 to-transparent" />
+                    <span className="absolute bottom-4 left-4 flex items-center gap-1.5 rounded-full bg-white/92 px-3 py-1.5 text-[11px] font-extrabold text-[#0b2944]">
+                      <BadgeCheck size={14} className="text-[#0ca7a0]" />
+                      Masidy verified
                     </span>
                   </div>
-                  <p className="mt-4 text-sm font-bold text-[#72dce3]">{agency.specialty}</p>
-                  <p className="mt-3 line-clamp-2 text-sm leading-6 text-white/60">
-                    {agency.description}
-                  </p>
-                  <div className="mt-5 flex items-center gap-4 border-t border-white/10 pt-4 text-xs text-white/50">
-                    <span>{agency.years} years active</span>
-                    <span>•</span>
-                    <span>{agency.reviews} reviews</span>
+                  <div className="p-5">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="text-xl font-extrabold">{agency.name}</h3>
+                        <p className="mt-1 text-sm text-white/50">{agency.location}</p>
+                      </div>
+                      <span className="flex items-center gap-1 text-sm font-bold">
+                        <Star size={14} className="fill-[#f4ba45] text-[#f4ba45]" />
+                        {agency.rating}
+                      </span>
+                    </div>
+                    <p className="mt-4 text-sm font-bold text-[#72dce3]">{agency.specialty}</p>
+                    <p className="mt-3 line-clamp-2 text-sm leading-6 text-white/60">
+                      {agency.description}
+                    </p>
+                    <div className="mt-5 flex items-center gap-4 border-t border-white/10 pt-4 text-xs text-white/50">
+                      <span>{agency.years} years active</span>
+                      <span>•</span>
+                      <span>{agency.reviews} reviews</span>
+                    </div>
+                    <Link
+                      href={`/agencies/${agency.slug}`}
+                      className="mt-4 inline-flex items-center gap-2 text-xs font-extrabold text-[#72dce3]"
+                    >
+                      View agency <ArrowRight size={14} />
+                    </Link>
                   </div>
-                  <Link
-                    href={`/agencies/${agency.slug}`}
-                    className="mt-4 inline-flex items-center gap-2 text-xs font-extrabold text-[#72dce3]"
-                  >
-                    View agency <ArrowRight size={14} />
-                  </Link>
-                </div>
-              </article>
-            ))}
-          </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-12 rounded-[30px] border border-white/10 bg-white/[.06] px-6 py-14 text-center">
+              <ShieldCheck className="mx-auto text-[#72dce3]" size={36} />
+              <h3 className="mt-4 text-xl font-extrabold">Verification comes before visibility</h3>
+              <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-white/60">
+                Provider profiles will appear automatically after their identity, licensing, support
+                contacts and marketplace terms are complete.
+              </p>
+            </div>
+          )}
         </div>
       </section>
 
@@ -837,6 +995,9 @@ export default function Marketplace({ trips, agencies }: MarketplaceProps) {
             <a href="#how">How it works</a>
             <a href="/demo">Live demo</a>
             <a href="/admin">Agency portal</a>
+            <Link href="/legal/terms">Terms</Link>
+            <Link href="/legal/privacy">Privacy</Link>
+            <Link href="/legal/cancellations">Cancellations</Link>
           </div>
         </div>
         <div className="mx-auto mt-10 flex max-w-[1320px] flex-col justify-between gap-3 border-t border-slate-100 pt-6 text-xs text-slate-400 sm:flex-row">

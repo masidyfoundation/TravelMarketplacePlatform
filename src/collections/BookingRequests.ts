@@ -48,7 +48,8 @@ export const BookingRequests: CollectionConfig = {
     defaultColumns: ['travelerName', 'trip', 'travelers', 'status', 'createdAt'],
   },
   access: {
-    create: () => true,
+    create: ({ req }) =>
+      req.user?.collection === 'admins' || req.context?.verifiedPublicSubmission === true,
     delete: isAdmin,
     read: agencyOrAdminRead,
     update: isAdmin,

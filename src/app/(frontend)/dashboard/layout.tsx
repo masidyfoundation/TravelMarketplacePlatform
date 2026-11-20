@@ -17,6 +17,7 @@ import {
   Users,
 } from 'lucide-react'
 import { getCurrentUser } from '@/lib/current-user'
+import { hasRequiredConsents } from '@/lib/required-consents'
 import SignOutButton from './sign-out-button'
 
 export const dynamic = 'force-dynamic'
@@ -24,6 +25,7 @@ export const dynamic = 'force-dynamic'
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser()
   if (!user) redirect('/login')
+  if (!(await hasRequiredConsents(user))) redirect('/consent')
 
   const nav = [
     { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },

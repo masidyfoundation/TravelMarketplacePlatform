@@ -1,5 +1,14 @@
-import type { Access, CollectionBeforeValidateHook, CollectionConfig, Where } from 'payload'
+import type {
+  Access,
+  CollectionBeforeValidateHook,
+  CollectionConfig,
+  FieldAccess,
+  Where,
+} from 'payload'
 import { auditChanges, auditDeletes } from '@/lib/audit-hook'
+
+const serverManagedField: FieldAccess = ({ req }) =>
+  req.user?.collection === 'admins' || req.context?.stripeConnect === true
 
 const ownAccounts: Access = async ({ req }) => {
   if (req.user?.collection === 'admins') return true
@@ -59,19 +68,60 @@ export const PaymentAccounts: CollectionConfig = {
     afterDelete: [auditDeletes('payment-accounts')],
   },
   fields: [
-    { name: 'type', type: 'select', required: true, options: ['agent', 'agency'] },
-    { name: 'user', type: 'relationship', relationTo: 'users', index: true },
-    { name: 'agency', type: 'relationship', relationTo: 'agencies', index: true },
-    { name: 'stripeAccountId', type: 'text', required: true, unique: true, index: true },
-    { name: 'chargesEnabled', type: 'checkbox', defaultValue: false },
-    { name: 'payoutsEnabled', type: 'checkbox', defaultValue: false },
-    { name: 'detailsSubmitted', type: 'checkbox', defaultValue: false },
+    {
+      name: 'type',
+      type: 'select',
+      required: true,
+      options: ['agent', 'agency'],
+      access: { create: serverManagedField, update: serverManagedField },
+    },
+    {
+      name: 'user',
+      type: 'relationship',
+      relationTo: 'users',
+      index: true,
+      access: { create: serverManagedField, update: serverManagedField },
+    },
+    {
+      name: 'agency',
+      type: 'relationship',
+      relationTo: 'agencies',
+      index: true,
+      access: { create: serverManagedField, update: serverManagedField },
+    },
+    {
+      name: 'stripeAccountId',
+      type: 'text',
+      required: true,
+      unique: true,
+      index: true,
+      access: { create: serverManagedField, update: serverManagedField },
+    },
+    {
+      name: 'chargesEnabled',
+      type: 'checkbox',
+      defaultValue: false,
+      access: { create: serverManagedField, update: serverManagedField },
+    },
+    {
+      name: 'payoutsEnabled',
+      type: 'checkbox',
+      defaultValue: false,
+      access: { create: serverManagedField, update: serverManagedField },
+    },
+    {
+      name: 'detailsSubmitted',
+      type: 'checkbox',
+      defaultValue: false,
+      access: { create: serverManagedField, update: serverManagedField },
+    },
     {
       name: 'status',
       type: 'select',
       required: true,
       defaultValue: 'pending',
       options: ['pending', 'enabled', 'restricted', 'disabled'],
+      access: { create: serverManagedField, update: serverManagedField },
     },
   ],
 }

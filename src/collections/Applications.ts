@@ -35,11 +35,101 @@ const activateApprovedRole: CollectionAfterChangeHook = async ({ doc, previousDo
   if (doc.status !== 'approved' || previousDoc?.status === 'approved') return doc
   const ownerID = typeof doc.owner === 'string' ? doc.owner : doc.owner?.id
   if (ownerID) {
+    if (doc.type === 'agency') {
+      const memberships = await req.payload.find({
+        collection: 'agency-memberships',
+        where: { user: { equals: ownerID } },
+        limit: 1,
+        overrideAccess: true,
+        req,
+      })
+      if (memberships.totalDocs === 0) {
+        const owner = await req.payload.findByID({
+          collection: 'users',
+          id: ownerID,
+          overrideAccess: true,
+          req,
+        })
+        const baseSlug =
+          String(doc.businessName)
+            .toLowerCase()
+            .trim()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-|-$/g, '')
+            .slice(0, 65) || 'travel-agency'
+        const existingSlug = await req.payload.find({
+          collection: 'agencies',
+          where: { slug: { equals: baseSlug } },
+          limit: 1,
+          overrideAccess: true,
+          req,
+        })
+        const slug =
+          existingSlug.totalDocs === 0
+            ? baseSlug
+            : `${baseSlug}-${String(doc.id)
+                .replace(/[^a-z0-9]/gi, '')
+                .slice(0, 8)
+                .toLowerCase()}`
+        const agency = await req.payload.create({
+          collection: 'agencies',
+          overrideAccess: true,
+          req,
+          data: {
+            name: doc.businessName,
+            slug,
+            location: doc.country,
+            specialty:
+              doc.specialties?.map((item: { name: string }) => item.name).join(', ') ||
+              'Custom travel',
+            description: doc.experience,
+            website: doc.website || undefined,
+            contactEmail: owner.email,
+            supportPhone: doc.phone,
+            rating: 0,
+            reviewCount: 0,
+            yearsActive: 0,
+            status: 'pending',
+            isDemo: false,
+          },
+        })
+        await req.payload.create({
+          collection: 'agency-memberships',
+          overrideAccess: true,
+          req,
+          data: {
+            user: ownerID,
+            agency: agency.id,
+            role: 'owner',
+            status: 'active',
+          },
+        })
+      }
+    }
     await req.payload.update({
       collection: 'users',
       id: ownerID,
       data: { role: doc.type, status: 'active' },
       overrideAccess: true,
+      req,
+    })
+    await req.payload.create({
+      collection: 'notifications',
+      overrideAccess: true,
+      req,
+      data: {
+        recipient: ownerID,
+        type: 'system',
+        title: 'Your Masidy partner application is approved',
+        body:
+          doc.type === 'agency'
+            ? 'Your agency workspace is ready. Complete your provider profile, payouts, and first trip for verification.'
+            : 'Your agent workspace is ready. Complete payouts and publish your storefront profile.',
+        href: doc.type === 'agency' ? '/dashboard/inventory' : '/dashboard/storefront',
+        scheduledFor: new Date().toISOString(),
+        deliveryStatus: 'scheduled',
+        attempts: 0,
+      },
     })
   }
   return doc

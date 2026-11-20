@@ -102,6 +102,7 @@ export async function uploadTravelerFile(
       method: 'POST',
       headers: { authorization: `Bearer ${scanKey}` },
       body: scanBody,
+      signal: AbortSignal.timeout(20_000),
     })
     const scanResult = (await scan.json().catch(() => null)) as { clean?: boolean } | null
     if (!scan.ok || scanResult?.clean !== true) {

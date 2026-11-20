@@ -8,11 +8,11 @@ export const dynamic = 'force-dynamic'
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sent?: string }>
+  searchParams: Promise<{ error?: string }>
 }) {
   const session = await auth()
   if (session?.user) redirect('/dashboard')
-  const { sent } = await searchParams
+  const { error } = await searchParams
 
   return (
     <main className="grid min-h-screen bg-[#f7f7f3] lg:grid-cols-[1.05fr_.95fr]">
@@ -71,14 +71,10 @@ export default async function LoginPage({
             Sign in to your workspace.
           </h2>
           <p className="mt-3 text-sm leading-6 text-slate-500">
-            Passwordless by design. Use Google or a secure one-time email link.
+            Continue securely with your Google account.
           </p>
           <div className="mt-8">
-            <LoginForm
-              googleEnabled={authProviders.google}
-              emailEnabled={authProviders.email}
-              sent={sent === '1'}
-            />
+            <LoginForm googleEnabled={authProviders.google} authError={Boolean(error)} />
           </div>
           <p className="mt-8 text-center text-xs leading-5 text-slate-400">
             By continuing, you agree to secure account processing and Masidy&apos;s marketplace

@@ -1,7 +1,14 @@
-import type { Access, CollectionBeforeValidateHook, CollectionConfig, Where } from 'payload'
+import type {
+  Access,
+  CollectionBeforeValidateHook,
+  CollectionConfig,
+  FieldAccess,
+  Where,
+} from 'payload'
 import { revalidateTag } from 'next/cache'
 
 const isAdmin: Access = ({ req }) => req.user?.collection === 'admins'
+const isAdminField: FieldAccess = ({ req }) => req.user?.collection === 'admins'
 
 const agencyIDsForUser = async (req: Parameters<Access>[0]['req']): Promise<string[]> => {
   if (req.user?.collection !== 'users' || req.user.role !== 'agency') return []
@@ -26,6 +33,7 @@ const agencyManaged: Access = async ({ req }) => {
 
 const validateAgencyOwnership: CollectionBeforeValidateHook = async ({
   data,
+  operation,
   originalDoc,
   req,
 }) => {
@@ -39,8 +47,60 @@ const validateAgencyOwnership: CollectionBeforeValidateHook = async ({
         : typeof originalDoc?.agency === 'string'
           ? originalDoc.agency
           : originalDoc?.agency?.id
-  if (!requestedAgency || !agencyIDs.includes(String(requestedAgency))) {
+  const agency =
+    requestedAgency || (operation === 'create' && agencyIDs.length === 1 ? agencyIDs[0] : '')
+  if (!agency || !agencyIDs.includes(String(agency))) {
     throw new Error('You can only manage trips for your agency.')
+  }
+  if (data?.status === 'active') {
+    throw new Error('Submit the trip for review; only Masidy staff can activate it.')
+  }
+  return operation === 'create' ? { ...data, agency } : data
+}
+
+const validatePublication: CollectionBeforeValidateHook = async ({ data, originalDoc, req }) => {
+  const next = { ...originalDoc, ...data }
+  if (next.status !== 'active') return data
+  const requiredArrays = [next.highlights, next.itinerary, next.inclusions]
+  if (
+    !next.heroImage ||
+    !next.summary ||
+    !next.cancellationPolicy ||
+    !next.accommodation ||
+    !next.transport ||
+    !next.meetingPoint ||
+    requiredArrays.some((value) => !Array.isArray(value) || value.length === 0)
+  ) {
+    throw new Error(
+      'Activation requires an image, summary, cancellation policy, logistics, highlights, itinerary, and inclusions.',
+    )
+  }
+  const agencyID =
+    typeof next.agency === 'string'
+      ? next.agency
+      : next.agency && typeof next.agency === 'object'
+        ? next.agency.id
+        : ''
+  if (!agencyID) throw new Error('Activation requires a verified agency.')
+  const agency = await req.payload.findByID({
+    collection: 'agencies',
+    id: agencyID,
+    overrideAccess: true,
+    req,
+  })
+  if (agency.status !== 'verified') throw new Error('Activation requires a verified agency.')
+  if (!originalDoc?.id) throw new Error('Create the trip as a draft before activation.')
+  const departures = await req.payload.find({
+    collection: 'departures',
+    where: {
+      and: [{ trip: { equals: originalDoc.id } }, { status: { in: ['open', 'guaranteed'] } }],
+    },
+    limit: 1,
+    overrideAccess: true,
+    req,
+  })
+  if (departures.totalDocs === 0) {
+    throw new Error('Activation requires at least one open or guaranteed departure.')
   }
   return data
 }
@@ -68,7 +128,7 @@ export const Trips: CollectionConfig = {
     update: agencyManaged,
   },
   hooks: {
-    beforeValidate: [validateAgencyOwnership],
+    beforeValidate: [validateAgencyOwnership, validatePublication],
     afterChange: [
       ({ doc, previousDoc }) => {
         revalidateTag('marketplace', 'max')
@@ -132,7 +192,6 @@ export const Trips: CollectionConfig = {
       name: 'heroImage',
       type: 'upload',
       relationTo: 'media',
-      required: true,
     },
     {
       name: 'durationDays',
@@ -157,14 +216,24 @@ export const Trips: CollectionConfig = {
       name: 'rating',
       type: 'number',
       required: true,
+      defaultValue: 0,
       min: 0,
       max: 5,
+      access: {
+        create: isAdminField,
+        update: isAdminField,
+      },
     },
     {
       name: 'reviewCount',
       type: 'number',
       required: true,
+      defaultValue: 0,
       min: 0,
+      access: {
+        create: isAdminField,
+        update: isAdminField,
+      },
     },
     {
       name: 'agentCommission',
@@ -234,6 +303,23 @@ export const Trips: CollectionConfig = {
       name: 'featured',
       type: 'checkbox',
       defaultValue: false,
+      access: {
+        create: isAdminField,
+        update: isAdminField,
+      },
+    },
+    {
+      name: 'isDemo',
+      type: 'checkbox',
+      defaultValue: false,
+      admin: {
+        description: 'Show this sample trip only in the product demo.',
+        position: 'sidebar',
+      },
+      access: {
+        create: isAdminField,
+        update: isAdminField,
+      },
     },
     {
       name: 'status',
@@ -242,6 +328,7 @@ export const Trips: CollectionConfig = {
       defaultValue: 'draft',
       options: [
         { label: 'Draft', value: 'draft' },
+        { label: 'In review', value: 'review' },
         { label: 'Active', value: 'active' },
         { label: 'Paused', value: 'paused' },
       ],

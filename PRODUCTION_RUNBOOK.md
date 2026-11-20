@@ -18,8 +18,7 @@ below before opening the site to users.
 - Configure the private-file scanner endpoint to accept multipart field `file`
   with bearer authentication and return JSON `{ "clean": true }` only for a
   clean file.
-- Verify the Resend sender domains used by `EMAIL_FROM` and
-  `TRANSACTIONAL_EMAIL_FROM`.
+- Verify the Resend sender domain used by `TRANSACTIONAL_EMAIL_FROM`.
 
 Renaming the published site changes its origin. Re-publish and update Google,
 Stripe, Turnstile, and any scanner allowlists after an origin change.

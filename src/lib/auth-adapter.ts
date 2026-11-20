@@ -98,14 +98,6 @@ export const payloadAuthAdapter: Adapter = {
         provider: account.provider,
         providerAccountId: account.providerAccountId,
         providerKey: `${account.provider}:${account.providerAccountId}`,
-        refresh_token: account.refresh_token,
-        access_token: account.access_token,
-        expires_at: account.expires_at,
-        token_type: account.token_type,
-        scope: account.scope,
-        id_token: account.id_token,
-        session_state:
-          typeof account.session_state === 'string' ? account.session_state : undefined,
       },
     })
     return account

@@ -19,6 +19,7 @@ export async function sendTransactionalEmail({
       'content-type': 'application/json',
     },
     body: JSON.stringify({ from, to, subject, html }),
+    signal: AbortSignal.timeout(15_000),
   })
   if (!response.ok) throw new Error('Transactional email delivery failed.')
   return { configured: true }

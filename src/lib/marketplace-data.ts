@@ -52,25 +52,28 @@ const mediaValue = (value: string | Media | null | undefined) =>
 
 const agencyValue = (value: string | Agency) => (typeof value === 'object' ? value : null)
 
-async function loadMarketplaceData(): Promise<{
+async function loadMarketplaceData(options?: { demo?: boolean }): Promise<{
   trips: PublicTrip[]
   agencies: PublicAgency[]
 }> {
   const payload = await getPayloadClient()
+  const demo = options?.demo === true
   const [tripResult, agencyResult] = await Promise.all([
     payload.find({
       collection: 'trips',
       depth: 2,
       limit: 24,
       sort: '-featured',
-      overrideAccess: false,
+      where: demo ? { isDemo: { equals: true } } : { status: { equals: 'active' } },
+      overrideAccess: demo,
     }),
     payload.find({
       collection: 'agencies',
       depth: 2,
       limit: 24,
       sort: '-rating',
-      overrideAccess: false,
+      where: demo ? { isDemo: { equals: true } } : { status: { equals: 'verified' } },
+      overrideAccess: demo,
     }),
   ])
 
@@ -126,9 +129,22 @@ async function loadMarketplaceData(): Promise<{
   return { trips, agencies }
 }
 
-export const getMarketplaceData = unstable_cache(loadMarketplaceData, ['marketplace-data'], {
-  tags: ['marketplace'],
-  // Hooks invalidate immediately in Admin/app requests; this is a resilient
-  // fallback for out-of-band imports that run without a Next request context.
-  revalidate: 60,
-})
+export const getMarketplaceData = unstable_cache(
+  () => loadMarketplaceData(),
+  ['marketplace-data'],
+  {
+    tags: ['marketplace'],
+    // Hooks invalidate immediately in Admin/app requests; this is a resilient
+    // fallback for out-of-band imports that run without a Next request context.
+    revalidate: 60,
+  },
+)
+
+export const getDemoMarketplaceData = unstable_cache(
+  () => loadMarketplaceData({ demo: true }),
+  ['demo-marketplace-data-v2'],
+  {
+    tags: ['marketplace'],
+    revalidate: 60,
+  },
+)

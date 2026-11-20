@@ -8,11 +8,12 @@ export async function getCurrentUser() {
   if (!session?.user?.id) return null
   const payload = await getPayloadClient()
   try {
-    return await payload.findByID({
+    const user = await payload.findByID({
       collection: 'users',
       id: session.user.id,
       overrideAccess: true,
     })
+    return user.status === 'active' ? user : null
   } catch {
     return null
   }

@@ -57,11 +57,18 @@ const prepareOrder: CollectionBeforeValidateHook = async ({ data, operation, req
   const rules = await req.payload.find({
     collection: 'finance-rules',
     where: { active: { equals: true } },
-    limit: 1,
+    limit: 2,
     overrideAccess: true,
   })
-  const platformFeePercent = rules.docs[0]?.platformFeePercent ?? 5
-  const taxPercent = rules.docs[0]?.taxPercent ?? 0
+  const financeRule = rules.docs[0]
+  if (!financeRule || rules.totalDocs !== 1) {
+    throw new Error('Checkout requires exactly one active finance rule.')
+  }
+  if (!financeRule.supportedCurrencies.includes(trip.currency)) {
+    throw new Error('This journey currency is not enabled for checkout.')
+  }
+  const platformFeePercent = financeRule.platformFeePercent
+  const taxPercent = financeRule.taxPercent
   const taxAmount = Math.round(subtotal * (taxPercent / 100) * 100) / 100
   const total = subtotal + taxAmount
   const attributionAgentID =
@@ -79,6 +86,7 @@ const prepareOrder: CollectionBeforeValidateHook = async ({ data, operation, req
     subtotal,
     taxAmount,
     platformFeeAmount: Math.round(subtotal * (platformFeePercent / 100) * 100) / 100,
+    invoicePrefix: financeRule.invoicePrefix,
     status: 'pending',
   }
 }
@@ -91,7 +99,8 @@ export const Orders: CollectionConfig = {
     defaultColumns: ['reference', 'trip', 'traveler', 'total', 'status'],
   },
   access: {
-    create: ({ req }) => req.user?.collection === 'users',
+    create: ({ req }) =>
+      req.user?.collection === 'users' && req.context?.checkout === true,
     delete: adminsOnly,
     read: ownOrders,
     update: ownOrders,
@@ -139,14 +148,23 @@ export const Orders: CollectionConfig = {
       relationTo: 'trips',
       required: true,
       index: true,
+      access: { update: adminsOnlyField },
     },
     {
       name: 'departure',
       type: 'relationship',
       relationTo: 'departures',
       index: true,
+      access: { update: adminsOnlyField },
     },
-    { name: 'travelers', type: 'number', required: true, min: 1, max: 20 },
+    {
+      name: 'travelers',
+      type: 'number',
+      required: true,
+      min: 1,
+      max: 20,
+      access: { update: adminsOnlyField },
+    },
     {
       name: 'total',
       type: 'number',
@@ -186,6 +204,12 @@ export const Orders: CollectionConfig = {
       access: { create: adminsOnlyField, update: adminsOnlyField },
     },
     {
+      name: 'invoicePrefix',
+      type: 'text',
+      maxLength: 20,
+      access: { create: adminsOnlyField, update: adminsOnlyField },
+    },
+    {
       name: 'status',
       type: 'select',
       required: true,
@@ -204,10 +228,7 @@ export const Orders: CollectionConfig = {
       name: 'stripeCheckoutSessionId',
       type: 'text',
       index: true,
-      access: {
-        create: adminsOnlyField,
-        update: ({ req }) => req.user?.collection === 'admins' || req.user?.collection === 'users',
-      },
+      access: { create: adminsOnlyField, update: adminsOnlyField },
     },
     {
       name: 'stripePaymentIntentId',

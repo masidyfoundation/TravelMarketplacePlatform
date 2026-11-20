@@ -24,6 +24,37 @@ const prepareProfile: CollectionBeforeValidateHook = ({ data, operation, req }) 
   return data
 }
 
+const validatePublishedProfile: CollectionBeforeValidateHook = async ({
+  data,
+  originalDoc,
+  req,
+}) => {
+  const nextStatus = data?.status ?? originalDoc?.status
+  if (nextStatus !== 'published') return data
+  const ownerID =
+    typeof (data?.owner ?? originalDoc?.owner) === 'string'
+      ? (data?.owner ?? originalDoc?.owner)
+      : (data?.owner ?? originalDoc?.owner)?.id
+  if (!ownerID) throw new Error('A published profile requires an owner.')
+  const accounts = await req.payload.find({
+    collection: 'payment-accounts',
+    where: {
+      and: [
+        { user: { equals: ownerID } },
+        { payoutsEnabled: { equals: true } },
+        { status: { equals: 'enabled' } },
+      ],
+    },
+    limit: 1,
+    overrideAccess: true,
+    req,
+  })
+  if (accounts.totalDocs === 0) {
+    throw new Error('Publishing requires a completed Stripe Connect payout account.')
+  }
+  return data
+}
+
 export const AgentProfiles: CollectionConfig = {
   slug: 'agent-profiles',
   admin: {
@@ -40,7 +71,7 @@ export const AgentProfiles: CollectionConfig = {
     update: ownProfiles,
   },
   hooks: {
-    beforeValidate: [prepareProfile],
+    beforeValidate: [prepareProfile, validatePublishedProfile],
     afterChange: [
       ({ doc, previousDoc }) => {
         revalidateTag('agent-storefronts', 'max')

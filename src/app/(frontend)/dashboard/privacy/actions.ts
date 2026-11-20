@@ -53,6 +53,7 @@ export async function updateConsent(formData: FormData) {
       id: existing.docs[0].id,
       user,
       overrideAccess: false,
+      context: { verifiedConsent: true },
       data: {
         granted,
         policyVersion: 'current',
@@ -65,6 +66,7 @@ export async function updateConsent(formData: FormData) {
       user,
       overrideAccess: false,
       draft: false,
+      context: { verifiedConsent: true },
       data: {
         type,
         granted,

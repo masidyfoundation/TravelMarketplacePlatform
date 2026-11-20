@@ -18,6 +18,26 @@ const makePublicPreviewOrigin = (() => {
   }
 })()
 
+const productionSiteOrigin = (() => {
+  const siteURL =
+    process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL
+  if (!siteURL || siteURL.includes('localhost')) return undefined
+
+  try {
+    return new URL(siteURL).host
+  } catch {
+    return undefined
+  }
+})()
+
+const serverActionOrigins = Array.from(
+  new Set(
+    [makePublicPreviewOrigin, productionSiteOrigin].filter(
+      (origin): origin is string => Boolean(origin),
+    ),
+  ),
+)
+
 const nextConfig: NextConfig = {
   webpack: (webpackConfig) => {
     webpackConfig.resolve.extensionAlias = {
@@ -54,13 +74,18 @@ const nextConfig: NextConfig = {
     cpus: 2,
     // Payload Admin uses Next Server Actions. In the Make preview proxy, the
     // browser origin is the public sandbox host while `x-forwarded-host` points
-    // at the local dev server. Allow only that exact platform-provisioned host.
+    // at the local dev server. Preserve that exact platform-provisioned host
+    // and allow the configured published host for production mutations.
     serverActions: {
-      allowedOrigins: makePublicPreviewOrigin ? [makePublicPreviewOrigin] : [],
+      allowedOrigins: serverActionOrigins,
     },
   },
   env: {
-    NEXT_PUBLIC_SITE_URL: process.env.FIGMA_PUBLIC_URL || 'http://localhost:3000',
+    NEXT_PUBLIC_SITE_URL:
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      process.env.NEXTAUTH_URL ||
+      process.env.FIGMA_PUBLIC_URL ||
+      'http://localhost:3000',
     // NOTE: Do not add FIGMA_OAUTH_CLIENT_SECRET, FIGMA_CONTENT_API_ACCESS_KEY,
     // or any other credential here. Values placed in `env` are inlined into
     // the JavaScript bundle by Next.js at build time and become readable by

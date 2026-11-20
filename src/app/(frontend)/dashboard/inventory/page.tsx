@@ -1,16 +1,23 @@
 import Link from 'next/link'
-import { CalendarDays, MapPinned, PackageOpen } from 'lucide-react'
+import { CalendarDays, MapPinned, PackageOpen, ShieldCheck } from 'lucide-react'
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/current-user'
 import { getPayloadClient } from '@/lib/payload'
-import { DepartureForm, NewDepartureForm, TripStatusForm } from './inventory-forms'
+import {
+  AgencyProfileForm,
+  DepartureForm,
+  EditTripForm,
+  NewDepartureForm,
+  NewTripForm,
+  TripStatusForm,
+} from './inventory-forms'
 
 export default async function InventoryPage() {
   const user = await getCurrentUser()
   if (!user) redirect('/login')
   if (user.role !== 'agency') redirect('/dashboard')
   const payload = await getPayloadClient()
-  const [trips, departures] = await Promise.all([
+  const [trips, departures, memberships, paymentAccounts] = await Promise.all([
     payload.find({
       collection: 'trips',
       user,
@@ -27,7 +34,24 @@ export default async function InventoryPage() {
       limit: 200,
       sort: 'startDate',
     }),
+    payload.find({
+      collection: 'agency-memberships',
+      user,
+      overrideAccess: false,
+      depth: 1,
+      limit: 20,
+    }),
+    payload.find({
+      collection: 'payment-accounts',
+      user,
+      overrideAccess: false,
+      depth: 0,
+      limit: 20,
+    }),
   ])
+  const agencies = memberships.docs.flatMap((membership) =>
+    typeof membership.agency === 'object' ? [membership.agency] : [],
+  )
   const managedTripIDs = new Set(trips.docs.map((trip) => String(trip.id)))
   const managedDepartures = departures.docs.filter((departure) => {
     const tripID = typeof departure.trip === 'string' ? departure.trip : String(departure.trip.id)
@@ -51,6 +75,58 @@ export default async function InventoryPage() {
           Partner verification
         </Link>
       </div>
+
+      <section className="mt-8 grid gap-5 xl:grid-cols-2">
+        {agencies.map((agency) => {
+          const payout = paymentAccounts.docs.find((account) => {
+            const agencyID =
+              typeof account.agency === 'string' ? account.agency : account.agency?.id
+            return agencyID === agency.id
+          })
+          return (
+            <AgencyProfileForm
+              key={agency.id}
+              agency={{
+                id: String(agency.id),
+                name: agency.name,
+                slug: agency.slug,
+                location: agency.location,
+                specialty: agency.specialty,
+                description: agency.description,
+                website: agency.website ?? '',
+                contactEmail: agency.contactEmail ?? '',
+                supportPhone: agency.supportPhone ?? '',
+                languages: agency.languages?.map((item) => item.language).join(', ') ?? '',
+                licenses:
+                  agency.licenses
+                    ?.map((license) => `${license.authority} | ${license.number}`)
+                    .join('\n') ?? '',
+                status: agency.status,
+                hasCoverImage: Boolean(agency.coverImage),
+                payoutsEnabled: Boolean(payout?.payoutsEnabled),
+              }}
+            />
+          )
+        })}
+        {agencies.length === 0 && (
+          <div className="rounded-[26px] border border-amber-200 bg-amber-50 p-6 text-amber-900 xl:col-span-2">
+            <ShieldCheck size={22} />
+            <h2 className="mt-3 font-extrabold">Agency provisioning is still pending</h2>
+            <p className="mt-2 text-sm leading-6 text-amber-800">
+              Approved agency applications are provisioned automatically. Contact support if your
+              approved account is not connected within a few minutes.
+            </p>
+          </div>
+        )}
+      </section>
+
+      {agencies.length > 0 && (
+        <div className="mt-6">
+          <NewTripForm
+            agencies={agencies.map((agency) => ({ id: String(agency.id), name: agency.name }))}
+          />
+        </div>
+      )}
 
       <div className="mt-8 grid gap-6 xl:grid-cols-[1fr_340px]">
         <section className="space-y-5">
@@ -80,6 +156,32 @@ export default async function InventoryPage() {
                     </div>
                     <TripStatusForm trip={{ id: String(trip.id), status: trip.status }} />
                   </div>
+                  <EditTripForm
+                    trip={{
+                      id: String(trip.id),
+                      title: trip.title,
+                      slug: trip.slug,
+                      destination: trip.destination,
+                      country: trip.country,
+                      category: trip.category,
+                      durationDays: trip.durationDays,
+                      price: trip.price,
+                      currency: trip.currency,
+                      agentCommission: trip.agentCommission,
+                      tagline: trip.tagline,
+                      summary: trip.summary ?? '',
+                      cancellationPolicy: trip.cancellationPolicy ?? '',
+                      accommodation: trip.accommodation ?? '',
+                      transport: trip.transport ?? '',
+                      meetingPoint: trip.meetingPoint ?? '',
+                      highlights: trip.highlights?.map((item) => item.title).join('\n') ?? '',
+                      inclusions: trip.inclusions?.map((item) => item.item).join('\n') ?? '',
+                      itinerary:
+                        trip.itinerary
+                          ?.map((item) => `${item.day} | ${item.title} | ${item.description}`)
+                          .join('\n') ?? '',
+                    }}
+                  />
                   <div className="mt-5 space-y-3">
                     {tripDepartures.map((departure) => (
                       <div key={departure.id} className="rounded-2xl bg-slate-50 p-4">
@@ -119,7 +221,8 @@ export default async function InventoryPage() {
               <PackageOpen className="mx-auto text-slate-300" size={34} />
               <h2 className="mt-3 font-extrabold">No managed inventory</h2>
               <p className="mt-2 text-sm text-slate-400">
-                An administrator must connect your verified account to an agency.
+                Create your first trip draft above, then add departure dates and submit it for
+                review.
               </p>
             </div>
           )}

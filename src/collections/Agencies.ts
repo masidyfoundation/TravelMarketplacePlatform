@@ -1,7 +1,8 @@
-import type { Access, CollectionConfig } from 'payload'
+import type { Access, CollectionBeforeValidateHook, CollectionConfig, FieldAccess } from 'payload'
 import { revalidateTag } from 'next/cache'
 
 const isAdmin: Access = ({ req }) => req.user?.collection === 'admins'
+const isAdminField: FieldAccess = ({ req }) => req.user?.collection === 'admins'
 
 const agencyManaged: Access = async ({ req }) => {
   if (req.user?.collection === 'admins') return true
@@ -20,6 +21,43 @@ const agencyManaged: Access = async ({ req }) => {
   return agencyIDs.length > 0 ? { id: { in: agencyIDs } } : false
 }
 
+const validateVerification: CollectionBeforeValidateHook = async ({ data, originalDoc, req }) => {
+  const next = { ...originalDoc, ...data }
+  if (next.status !== 'verified') return data
+  if (
+    !next.website ||
+    !next.contactEmail ||
+    !next.supportPhone ||
+    !next.coverImage ||
+    !Array.isArray(next.licenses) ||
+    next.licenses.length === 0
+  ) {
+    throw new Error(
+      'Verification requires a website, contact email, support phone, cover image, and at least one license.',
+    )
+  }
+  if (!originalDoc?.id) {
+    throw new Error('Create the agency as pending before verification.')
+  }
+  const accounts = await req.payload.find({
+    collection: 'payment-accounts',
+    where: {
+      and: [
+        { agency: { equals: originalDoc.id } },
+        { payoutsEnabled: { equals: true } },
+        { status: { equals: 'enabled' } },
+      ],
+    },
+    limit: 1,
+    overrideAccess: true,
+    req,
+  })
+  if (accounts.totalDocs === 0) {
+    throw new Error('Verification requires a completed Stripe Connect payout account.')
+  }
+  return data
+}
+
 export const Agencies: CollectionConfig = {
   slug: 'agencies',
   admin: {
@@ -35,6 +73,7 @@ export const Agencies: CollectionConfig = {
     update: agencyManaged,
   },
   hooks: {
+    beforeValidate: [validateVerification],
     afterChange: [
       ({ doc, previousDoc }) => {
         revalidateTag('marketplace', 'max')
@@ -113,18 +152,43 @@ export const Agencies: CollectionConfig = {
       required: true,
       min: 0,
       max: 5,
+      access: {
+        create: isAdminField,
+        update: isAdminField,
+      },
     },
     {
       name: 'reviewCount',
       type: 'number',
       required: true,
       min: 0,
+      access: {
+        create: isAdminField,
+        update: isAdminField,
+      },
     },
     {
       name: 'yearsActive',
       type: 'number',
       required: true,
       min: 0,
+      access: {
+        create: isAdminField,
+        update: isAdminField,
+      },
+    },
+    {
+      name: 'isDemo',
+      type: 'checkbox',
+      defaultValue: false,
+      admin: {
+        description: 'Show this sample provider only in the product demo.',
+        position: 'sidebar',
+      },
+      access: {
+        create: isAdminField,
+        update: isAdminField,
+      },
     },
     {
       name: 'status',
@@ -136,6 +200,10 @@ export const Agencies: CollectionConfig = {
         { label: 'Verified', value: 'verified' },
         { label: 'Suspended', value: 'suspended' },
       ],
+      access: {
+        create: isAdminField,
+        update: isAdminField,
+      },
     },
   ],
 }

@@ -1,4 +1,3 @@
-import { revalidateTag } from 'next/cache'
 import type { CollectionConfig } from 'payload'
 
 export const LegalPolicies: CollectionConfig = {
@@ -10,25 +9,6 @@ export const LegalPolicies: CollectionConfig = {
     read: ({ req }) =>
       req.user?.collection === 'admins' ? true : { status: { equals: 'published' } },
     update: ({ req }) => req.user?.collection === 'admins',
-  },
-  hooks: {
-    afterChange: [
-      ({ doc, previousDoc }) => {
-        revalidateTag('legal-policies', 'max')
-        if (doc.slug) revalidateTag(`legal:${doc.slug}`, 'max')
-        if (previousDoc?.slug && previousDoc.slug !== doc.slug) {
-          revalidateTag(`legal:${previousDoc.slug}`, 'max')
-        }
-        return doc
-      },
-    ],
-    afterDelete: [
-      ({ doc }) => {
-        revalidateTag('legal-policies', 'max')
-        if (doc.slug) revalidateTag(`legal:${doc.slug}`, 'max')
-        return doc
-      },
-    ],
   },
   fields: [
     { name: 'title', type: 'text', required: true },

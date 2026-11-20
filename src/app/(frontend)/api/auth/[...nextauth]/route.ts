@@ -1,7 +1,7 @@
 import { authProviders, handlers } from '@/auth'
 import type { NextRequest } from 'next/server'
 
-const configured = Boolean(process.env.AUTH_SECRET) && (authProviders.google || authProviders.email)
+const configured = Boolean(process.env.AUTH_SECRET) && authProviders.google
 
 export async function GET(request: NextRequest) {
   if (configured) return handlers.GET(request)

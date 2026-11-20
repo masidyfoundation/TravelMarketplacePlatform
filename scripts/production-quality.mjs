@@ -13,8 +13,9 @@ for (const path of [
   '/',
   '/demo',
   '/login',
-  '/trips/patagonia-at-the-edge',
-  '/agencies/meridian-wild',
+  '/legal/terms',
+  '/legal/privacy',
+  '/legal/cancellations',
 ]) {
   const { response, html } = await page(path)
   assert.equal(response.status, 200, `${path} must render`)
@@ -25,9 +26,27 @@ for (const path of [
   for (const image of images) {
     assert.match(image, /\balt=/i, `${path} contains an image without alt`)
   }
+  if (path === '/demo') {
+    assert.match(html, /Patagonia at the Edge/, '/demo must include sample inventory')
+  }
+  if (path === '/') {
+    assert.match(html, /Demo · not bookable/, 'homepage must label sample inventory as demo')
+    assert.match(html, /Patagonia at the Edge/, 'homepage must include demo trip imagery')
+    assert.doesNotMatch(
+      html,
+      /href="\/trips\/patagonia-at-the-edge"/,
+      'homepage demo cards must not link to bookable trip pages',
+    )
+  }
+}
+
+for (const path of ['/trips/patagonia-at-the-edge', '/agencies/meridian-wild']) {
+  const response = await fetch(`${base}${path}`, { redirect: 'manual' })
+  assert.equal(response.status, 404, `${path} must not expose demo inventory`)
 }
 
 for (const path of [
+  '/consent',
   '/dashboard',
   '/dashboard/operations',
   '/dashboard/finance',
@@ -43,7 +62,22 @@ const cron = await fetch(`${base}/api/cron/notifications`, { method: 'POST' })
 assert.equal(cron.status, 401, 'cron endpoint must require its bearer secret')
 
 const webhook = await fetch(`${base}/api/payments/webhook`, { method: 'POST' })
-assert.ok(webhook.status === 400 || webhook.status === 503, 'webhook must reject unsigned requests')
+assert.equal(webhook.status, 400, 'configured Stripe webhook must reject unsigned requests')
+
+const providers = await fetch(`${base}/api/auth/providers`)
+assert.equal(providers.status, 200, 'authentication providers must be available')
+const providerBody = await providers.json()
+assert.ok(providerBody.google, 'Google authentication must be configured')
+assert.equal(providerBody.resend, undefined, 'unavailable magic-link authentication must be hidden')
+
+const authErrorPage = await page('/login?error=Configuration')
+assert.equal(authErrorPage.response.status, 200, 'authentication errors must return to login')
+assert.match(
+  authErrorPage.html,
+  /Google sign-in couldn(?:&#x27;|')t be completed/,
+  'Google authentication failures must be visible to the user',
+)
+assert.doesNotMatch(authErrorPage.html, /sign-in link|Email me/, 'magic-link UI must be removed')
 
 if (process.env.STRIPE_WEBHOOK_SECRET) {
   const payload = JSON.stringify({

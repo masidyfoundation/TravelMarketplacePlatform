@@ -8,7 +8,12 @@ declare global {
     turnstile?: {
       render: (
         element: HTMLElement,
-        options: { sitekey: string; callback: (token: string) => void },
+        options: {
+          sitekey: string
+          callback: (token: string) => void
+          'expired-callback': () => void
+          'error-callback': () => void
+        },
       ) => string
     }
   }
@@ -29,6 +34,8 @@ export default function Turnstile() {
             window.turnstile.render(target.current, {
               sitekey: siteKey,
               callback: setToken,
+              'expired-callback': () => setToken(''),
+              'error-callback': () => setToken(''),
             })
           }
         }}

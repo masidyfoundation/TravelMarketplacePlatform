@@ -526,7 +526,7 @@ export default function DemoClient({
                         Demo output ready
                       </div>
                       <p className="mt-3 text-sm leading-7 text-white/60">
-                        I analyzed live Masidy inventory and prepared a structured recommendation
+                        I analyzed sample Masidy inventory and prepared a structured recommendation
                         with the best-fit journeys, pricing logic, next actions and a polished
                         customer-facing narrative. Connect the AI key to generate personalized
                         production output and save it to the workspace.
@@ -542,14 +542,14 @@ export default function DemoClient({
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
               <div>
                 <p className="text-[10px] font-extrabold uppercase tracking-[.14em] text-slate-400">
-                  Live marketplace connection
+                  Demo marketplace connection
                 </p>
                 <h2 className="mt-2 text-2xl font-black tracking-[-.04em]">
                   {role === 'agency' ? 'Published inventory' : 'Recommended now'}
                 </h2>
               </div>
               <p className="text-xs font-bold text-emerald-600">
-                Automatically synced from {agencies.length} verified agencies
+                Using {agencies.length} clearly labeled sample agencies
               </p>
             </div>
             <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">

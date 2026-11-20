@@ -138,6 +138,7 @@ Do not claim integrations or facts not supplied.`
         'content-type': 'application/json',
       },
       body: JSON.stringify({ model: 'omni-moderation-latest', input: prompt }),
+      signal: AbortSignal.timeout(20_000),
     })
     const moderationResult = (await moderation.json()) as {
       results?: Array<{ flagged?: boolean }>
@@ -170,6 +171,7 @@ Do not claim integrations or facts not supplied.`
         instructions,
         input: prompt,
       }),
+      signal: AbortSignal.timeout(60_000),
     })
     if (!response.ok) throw new Error(`OpenAI request failed with ${response.status}`)
     const result = (await response.json()) as {

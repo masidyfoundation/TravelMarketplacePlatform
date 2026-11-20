@@ -2,6 +2,7 @@
 
 import { getCurrentUser } from '@/lib/current-user'
 import { getPayloadClient } from '@/lib/payload'
+import { hasRequiredConsents } from '@/lib/required-consents'
 
 export type ApplicationState = {
   status: 'idle' | 'success' | 'error'
@@ -19,12 +20,24 @@ const value = (formData: FormData, key: string) => {
   return typeof field === 'string' ? field.trim() : ''
 }
 
+const validWebsite = (website: string) => {
+  if (!website) return true
+  try {
+    return ['http:', 'https:'].includes(new URL(website).protocol)
+  } catch {
+    return false
+  }
+}
+
 export async function submitApplication(
   _previous: ApplicationState,
   formData: FormData,
 ): Promise<ApplicationState> {
   const user = await getCurrentUser()
   if (!user) return { status: 'error', message: 'Sign in to submit an application.' }
+  if (!(await hasRequiredConsents(user))) {
+    return { status: 'error', message: 'Accept the Terms and Privacy Policy before applying.' }
+  }
 
   const type = value(formData, 'type')
   const businessName = value(formData, 'businessName')
@@ -54,7 +67,9 @@ export async function submitApplication(
   if (experience.length < 40 || experience.length > 3000) {
     fieldErrors.experience = 'Describe your experience in at least 40 characters.'
   }
-  if (website.length > 300) fieldErrors.website = 'Website URL is too long.'
+  if (website.length > 300 || !validWebsite(website)) {
+    fieldErrors.website = 'Enter a valid http or https website URL.'
+  }
 
   if (Object.keys(fieldErrors).length > 0) {
     return {
